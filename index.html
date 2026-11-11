@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>線上西洋棋</title>
+<style>
+  :root {
+    --bg: #f4f1ea; --panel: #ffffff; --text: #22201c; --muted: #6f6a61; --line: #e2ddd2;
+    --accent: #2f6f4f; --light: #eed9b6; --dark: #b5875e; --sel: rgba(47,111,79,.55);
+    --last: rgba(246,214,90,.55); --dot: rgba(30,30,30,.28); --check: #e2453c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #1b1a18; --panel: #262421; --text: #ece7de; --muted: #a39d92; --line: #3a3733; --accent: #6fbf8f; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 20px 16px 40px;
+    display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; align-items: flex-start; }
+  h1 { width: 100%; margin: 0; font-size: 22px; text-align: center; letter-spacing: .05em; }
+  .game { --bs: min(92vw, 72vh, 560px); width: var(--bs); }
+  .bar { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 2px; }
+  .bar .name { font-weight: 600; }
+  .bar.turn .name::before { content: "●"; color: var(--accent); margin-right: 6px; }
+  .caps { font-size: 20px; line-height: 1; color: var(--muted); letter-spacing: -2px; flex: 1; }
+  .adv { font-size: 13px; color: var(--muted); }
+  #board { width: var(--bs); height: var(--bs); display: grid; grid-template-columns: repeat(8, 1fr);
+    border-radius: 6px; overflow: hidden; box-shadow: 0 6px 24px rgba(0,0,0,.18); user-select: none; }
+  .sq { position: relative; border: 0; padding: 0; margin: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; font-size: calc(var(--bs) / 8 * .78); line-height: 1; }
+  .sq.light { background: var(--light); }
+  .sq.dark { background: var(--dark); }
+  .sq.last::before { content: ""; position: absolute; inset: 0; background: var(--last); }
+  .sq.sel::before { content: ""; position: absolute; inset: 0; background: var(--sel); }
+  .sq.check::before { content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle, var(--check) 0%, rgba(226,69,60,.6) 40%, transparent 75%); }
+  .sq.move::after { content: ""; position: absolute; width: 30%; height: 30%; border-radius: 50%; background: var(--dot); }
+  .sq.capture::after { content: ""; position: absolute; inset: 4%; border-radius: 50%; border: 5px solid var(--dot); }
+  .pc { position: relative; z-index: 1; pointer-events: none; }
+  .pc.w { color: #fff; text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 2px #000, 1px 0 1px #000, -1px 0 1px #000, 0 -1px 1px #000; }
+  .pc.b { color: #161411; text-shadow: 0 1px 1px rgba(255,255,255,.25); }
+  .coord { position: absolute; font-size: 11px; font-weight: 600; z-index: 1; pointer-events: none; }
+  .coord.f { right: 3px; bottom: 2px; }
+  .coord.r { left: 3px; top: 2px; }
+  .light .coord { color: var(--dark); }
+  .dark .coord { color: var(--light); }
+  .side { width: 300px; max-width: 92vw; display: flex; flex-direction: column; gap: 14px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  #status { font-size: 17px; font-weight: 600; min-height: 24px; }
+  #status.over { color: var(--accent); }
+  label { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; margin: 6px 0; }
+  select { font: inherit; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  .btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+  button.act { font: inherit; font-size: 14px; padding: 8px 6px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); cursor: pointer; }
+  button.act:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  #moves { margin: 0; padding: 0; list-style: none; max-height: 240px; overflow-y: auto;
+    display: grid; grid-template-columns: 36px 1fr 1fr; font-size: 14px; font-variant-numeric: tabular-nums; }
+  #moves li { padding: 3px 4px; }
+  #moves .n { color: var(--muted); }
+  .muted { color: var(--muted); font-size: 13px; }
+  #promo { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 10; }
+  #promo.show { display: flex; }
+  #promo .box { background: var(--panel); padding: 16px; border-radius: 12px; text-align: center; }
+  #promo .opts { display: flex; gap: 8px; margin-top: 10px; }
+  #promo .opts button { width: 72px; height: 72px; font-size: 52px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--light); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>♞ 線上西洋棋</h1>
+  <div class="game">
+    <div class="bar" id="topBar"><span class="name" id="topName"></span><span class="caps" id="topCaps"></span><span class="adv" id="topAdv"></span></div>
+    <div id="board" role="grid" aria-label="棋盤"></div>
+    <div class="bar" id="botBar"><span class="name" id="botName"></span><span class="caps" id="botCaps"></span><span class="adv" id="botAdv"></span></div>
+  </div>
+  <div class="side">
+    <div class="card"><div id="status"></div></div>
+    <div class="card">
+      <label>模式
+        <select id="mode"><option value="ai">對戰電腦</option><option value="pvp">雙人同機</option></select>
+      </label>
+      <label id="sideRow">我執
+        <select id="side"><option value="w">白棋（先手）</option><option value="b">黑棋</option><option value="random">隨機</option></select>
+      </label>
+      <label id="levelRow">難度
+        <select id="level"><option value="1">簡單</option><option value="2" selected>中等</option><option value="3">困難</option></select>
+      </label>
+      <div class="btns" style="margin-top:10px">
+        <button class="act primary" id="newBtn">新局</button>
+        <button class="act" id="undoBtn">悔棋</button>
+        <button class="act" id="flipBtn">翻轉</button>
+      </div>
+    </div>
+    <div class="card">
+      <ol id="moves"></ol>
+      <div class="muted" id="noMoves">尚未走棋</div>
+    </div>
+  </div>
+</div>
+<div id="promo" role="dialog" aria-label="選擇升變棋子">
+  <div class="box"><div>兵升變為：</div><div class="opts" id="promoOpts"></div></div>
+</div>
+<script src="engine.js"></script>
+<script>
+(function () {
+  'use strict';
+  const C = window.Chess;
+  const $ = (id) => document.getElementById(id);
+  const GLYPH = { 1: '♟', 2: '♞', 3: '♝', 4: '♜', 5: '♛', 6: '♚' };
+  const NAME = { 1: '兵', 2: '騎士', 3: '主教', 4: '城堡', 5: '皇后', 6: '國王' };
+  const VALUE = { 1: 1, 2: 3, 3: 3, 4: 5, 5: 9 };
+  const INIT = { 1: 8, 2: 2, 3: 2, 4: 2, 5: 1 };
+  const RESULT = {
+    stalemate: '逼和，和局', insufficient: '子力不足，和局',
+    fifty: '50 步規則，和局', repetition: '三次重複局面，和局'
+  };
+
+  let st, cur, snaps = [], sans = [], hist = [];
+  let selected = null, flipped = false, thinking = false, human = 1, token = 0;
+
+  const glyph = (p) => GLYPH[Math.abs(p)] + '︎';
+  const sideName = (s) => (s === 1 ? '白方' : '黑方');
+
+  function newGame() {
+    const mode = $('mode').value;
+    if (mode === 'ai') {
+      let side = $('side').value;
+      if (side === 'random') side = Math.random() < 0.5 ? 'w' : 'b';
+      human = side === 'w' ? 1 : -1;
+      flipped = human === -1;
+    } else {
+      human = 0;
+      flipped = false;
+    }
+    st = C.newState();
+    snaps = []; sans = []; hist = [];
+    selected = null; thinking = false; token++;
+    $('sideRow').style.display = $('levelRow').style.display = mode === 'ai' ? '' : 'none';
+    refresh();
+    maybeAI();
+  }
+
+  function refresh() {
+    cur = C.status(st);
+    render();
+  }
+
+  function doMove(m) {
+    sans.push(C.san(st, m, cur.moves));
+    snaps.push(C.cloneState(st));
+    hist.push({ from: m.from, to: m.to });
+    C.play(st, m);
+    selected = null;
+    refresh();
+    maybeAI();
+  }
+
+  function maybeAI() {
+    if (cur.over || human === 0 || st.turn === human) return;
+    thinking = true;
+    render();
+    const my = token;
+    setTimeout(() => {
+      if (my !== token) return;
+      const m = C.chooseMove(st, +$('level').value);
+      thinking = false;
+      if (!m) { refresh(); return; }
+      const mm = cur.moves.find((x) => x.from === m.from && x.to === m.to && x.promo === m.promo);
+      doMove(mm || m);
+    }, 60);
+  }
+
+  function undo() {
+    if (!snaps.length) return;
+    token++;
+    thinking = false;
+    do {
+      st = snaps.pop(); sans.pop(); hist.pop();
+    } while (human !== 0 && st.turn !== human && snaps.length);
+    selected = null;
+    refresh();
+    maybeAI();
+  }
+
+  function onSquare(sq) {
+    if (cur.over || thinking) return;
+    if (human !== 0 && st.turn !== human) return;
+    if (selected !== null) {
+      const ms = cur.moves.filter((m) => m.from === selected && m.to === sq);
+      if (ms.length > 1) return askPromo(ms);
+      if (ms.length === 1) return doMove(ms[0]);
+    }
+    selected = st.board[sq] * st.turn > 0 && selected !== sq ? sq : null;
+    render();
+  }
+
+  function askPromo(ms) {
+    const box = $('promoOpts');
+    box.innerHTML = '';
+    for (const m of ms) {
+      const b = document.createElement('button');
+      b.innerHTML = '<span class="pc ' + (st.turn === 1 ? 'w' : 'b') + '">' + glyph(m.promo) + '</span>';
+      b.setAttribute('aria-label', NAME[m.promo]);
+      b.onclick = () => { $('promo').classList.remove('show'); doMove(m); };
+      box.appendChild(b);
+    }
+    $('promo').classList.add('show');
+  }
+
+  function capturedInfo() {
+    const cnt = { 1: {}, '-1': {} };
+    for (const p of st.board) {
+      if (!p || Math.abs(p) === 6) continue;
+      const s = p > 0 ? 1 : -1, t = Math.abs(p);
+      cnt[s][t] = (cnt[s][t] || 0) + 1;
+    }
+    const res = { 1: { list: '', pts: 0 }, '-1': { list: '', pts: 0 } };
+    for (const s of [1, -1]) {
+      for (const t of [5, 4, 3, 2, 1]) {
+        const lost = Math.max(0, INIT[t] - (cnt[s][t] || 0));
+        res[-s].list += glyph(t).repeat(lost);
+      }
+      for (const t in cnt[s]) res[s].pts += VALUE[t] * cnt[s][t];
+    }
+    return res;
+  }
+
+  function render() {
+    const board = $('board');
+    board.innerHTML = '';
+    const targets = new Map();
+    if (selected !== null) for (const m of cur.moves) if (m.from === selected) targets.set(m.to, m);
+    const last = hist[hist.length - 1];
+    const kingSq = cur.check ? st.board.indexOf(6 * st.turn) : -1;
+
+    for (let i = 0; i < 64; i++) {
+      const sq = flipped ? 63 - i : i;
+      const r = sq >> 3, c = sq & 7, p = st.board[sq];
+      const el = document.createElement('button');
+      el.className = 'sq ' + ((r + c) % 2 ? 'dark' : 'light');
+      if (last && (sq === last.from || sq === last.to)) el.classList.add('last');
+      if (sq === selected) el.classList.add('sel');
+      if (sq === kingSq) el.classList.add('check');
+      if (targets.has(sq)) el.classList.add(p || targets.get(sq).flag === 1 ? 'capture' : 'move');
+      if (p) el.innerHTML = '<span class="pc ' + (p > 0 ? 'w' : 'b') + '">' + glyph(p) + '</span>';
+      if ((i >> 3) === 7) el.insertAdjacentHTML('beforeend', '<span class="coord f">' + 'abcdefgh'[c] + '</span>');
+      if ((i & 7) === 0) el.insertAdjacentHTML('beforeend', '<span class="coord r">' + (8 - r) + '</span>');
+      el.setAttribute('aria-label', C.sqName(sq) + (p ? ' ' + sideName(p > 0 ? 1 : -1) + NAME[Math.abs(p)] : ''));
+      el.onclick = () => onSquare(sq);
+      board.appendChild(el);
+    }
+
+    const bottom = flipped ? -1 : 1, top = -bottom;
+    const caps = capturedInfo();
+    const label = (s) => sideName(s) + (human === 0 ? '' : s === human ? '（你）' : '（電腦）');
+    const diff = caps[1].pts - caps[-1].pts;
+    $('topName').textContent = label(top);
+    $('botName').textContent = label(bottom);
+    $('topCaps').textContent = caps[top].list;
+    $('botCaps').textContent = caps[bottom].list;
+    $('topAdv').textContent = diff * top > 0 ? '+' + Math.abs(diff) : '';
+    $('botAdv').textContent = diff * bottom > 0 ? '+' + Math.abs(diff) : '';
+    $('topBar').classList.toggle('turn', !cur.over && st.turn === top);
+    $('botBar').classList.toggle('turn', !cur.over && st.turn === bottom);
+
+    const status = $('status');
+    status.classList.toggle('over', cur.over);
+    if (cur.over) {
+      status.textContent = cur.result === 'checkmate'
+        ? '將死！' + sideName(-st.turn) + '獲勝'
+        : RESULT[cur.result];
+    } else if (thinking) {
+      status.textContent = '電腦思考中…';
+    } else {
+      const who = human !== 0 && st.turn === human ? '輪到你了' : '輪到' + sideName(st.turn);
+      status.textContent = who + (cur.check ? '（將軍！）' : '');
+    }
+
+    const list = $('moves');
+    list.innerHTML = '';
+    for (let i = 0; i < sans.length; i += 2) {
+      list.insertAdjacentHTML('beforeend',
+        '<li class="n">' + (i / 2 + 1) + '.</li><li>' + sans[i] + '</li><li>' + (sans[i + 1] || '') + '</li>');
+    }
+    list.scrollTop = list.scrollHeight;
+    $('noMoves').style.display = sans.length ? 'none' : '';
+    $('undoBtn').disabled = !snaps.length;
+  }
+
+  $('newBtn').onclick = newGame;
+  $('undoBtn').onclick = undo;
+  $('flipBtn').onclick = () => { flipped = !flipped; render(); };
+  $('mode').onchange = newGame;
+  $('side').onchange = newGame;
+  newGame();
+})();
+</script>
+</body>
+</html>
