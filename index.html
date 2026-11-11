@@ -61,6 +61,10 @@
   #moves li { padding: 3px 4px; }
   #moves .n { color: var(--muted); }
   .muted { color: var(--muted); font-size: 13px; }
+  .share { display: flex; gap: 6px; }
+  .share input { flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 6px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text); }
+  button.act:disabled { opacity: .45; cursor: default; }
   #promo { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 10; }
   #promo.show { display: flex; }
   #promo .box { background: var(--panel); padding: 16px; border-radius: 12px; text-align: center; }
@@ -81,7 +85,7 @@
     <div class="card"><div id="status"></div></div>
     <div class="card">
       <label>模式
-        <select id="mode"><option value="ai">對戰電腦</option><option value="pvp">雙人同機</option></select>
+        <select id="mode"><option value="ai">對戰電腦</option><option value="online">線上對戰</option><option value="pvp">雙人同機</option></select>
       </label>
       <label id="sideRow">我執
         <select id="side"><option value="w">白棋（先手）</option><option value="b">黑棋</option><option value="random">隨機</option></select>
@@ -94,6 +98,14 @@
         <button class="act" id="undoBtn">悔棋</button>
         <button class="act" id="flipBtn">翻轉</button>
       </div>
+    </div>
+    <div class="card" id="onlineCard" hidden>
+      <button class="act primary" id="hostBtn" style="width:100%">建立房間</button>
+      <div id="shareBox" hidden>
+        <div class="muted" style="margin:10px 0 6px">把這個連結傳給朋友，對方打開就能加入：</div>
+        <div class="share"><input id="shareLink" readonly aria-label="邀請連結"><button class="act" id="copyBtn">複製</button></div>
+      </div>
+      <div class="muted" id="onlineMsg" style="margin-top:8px"></div>
     </div>
     <div class="card">
       <ol id="moves"></ol>
@@ -120,28 +132,212 @@
   };
 
   let st, cur, snaps = [], sans = [], hist = [];
-  let selected = null, flipped = false, thinking = false, human = 1, token = 0;
+  let selected = null, flipped = false, thinking = false, human = 1, token = 0, mode = 'ai';
+  // Online play state: peer = PeerJS instance, conn = data connection to opponent.
+  const online = { peer: null, conn: null, color: 1, ready: false, guest: false };
+  const PEERJS_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
+  const ROOM_PREFIX = 'wchess-';
 
   const glyph = (p) => GLYPH[Math.abs(p)] + '︎';
   const sideName = (s) => (s === 1 ? '白方' : '黑方');
+  const pickSide = () => {
+    const side = $('side').value;
+    if (side === 'random') return Math.random() < 0.5 ? 1 : -1;
+    return side === 'w' ? 1 : -1;
+  };
+
+  function resetBoard() {
+    st = C.newState();
+    snaps = []; sans = []; hist = [];
+    selected = null; thinking = false; token++;
+    $('promo').classList.remove('show');
+    refresh();
+  }
+
+  function updatePanels() {
+    $('sideRow').style.display = mode === 'ai' || (mode === 'online' && !online.guest) ? '' : 'none';
+    $('levelRow').style.display = mode === 'ai' ? '' : 'none';
+    $('onlineCard').hidden = mode !== 'online';
+  }
 
   function newGame() {
-    const mode = $('mode').value;
+    mode = $('mode').value;
+    if (mode !== 'online') closeOnline();
+    updatePanels();
+    if (mode === 'online') {
+      if (online.ready) {
+        send({ type: 'restart' });
+        startOnline(online.color);
+      } else {
+        human = online.guest ? online.color : pickSide();
+        flipped = human === -1;
+        resetBoard();
+      }
+      return;
+    }
     if (mode === 'ai') {
-      let side = $('side').value;
-      if (side === 'random') side = Math.random() < 0.5 ? 'w' : 'b';
-      human = side === 'w' ? 1 : -1;
+      human = pickSide();
       flipped = human === -1;
     } else {
       human = 0;
       flipped = false;
     }
-    st = C.newState();
-    snaps = []; sans = []; hist = [];
-    selected = null; thinking = false; token++;
-    $('sideRow').style.display = $('levelRow').style.display = mode === 'ai' ? '' : 'none';
-    refresh();
+    resetBoard();
     maybeAI();
+  }
+
+  // ---------- Online (PeerJS) ----------
+  function setOnlineMsg(text) { $('onlineMsg').textContent = text; }
+
+  function loadPeer() {
+    if (window.Peer) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = PEERJS_URL;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error('load failed'));
+      document.head.appendChild(s);
+    });
+  }
+
+  function randomRoom() {
+    const chars = 'abcdefghjkmnpqrstuvwxyz23456789';
+    let id = '';
+    for (let i = 0; i < 6; i++) id += chars[Math.floor(Math.random() * chars.length)];
+    return id;
+  }
+
+  function send(msg) {
+    if (online.conn && online.conn.open) online.conn.send(msg);
+  }
+
+  function startOnline(color) {
+    online.color = color;
+    human = color;
+    flipped = color === -1;
+    resetBoard();
+  }
+
+  function peerErrorText(err) {
+    if (err && err.type === 'peer-unavailable') return '找不到這個房間，可能已關閉，請請對方重新建立。';
+    if (err && err.type === 'unavailable-id') return '房間代碼重複，請再按一次「建立房間」。';
+    if (err && (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error')) return '連不上配對伺服器，請檢查網路後再試。';
+    return '連線發生錯誤，請重新整理後再試。';
+  }
+
+  function dropConn(conn) {
+    if (online.conn !== conn) return;
+    clearInterval(online.heartbeat);
+    online.conn = null;
+    online.ready = false;
+    conn.close();
+    setOnlineMsg(online.guest ? '對手已離線。' : '對手已離線，連結仍有效，可等對方重新加入。');
+    render();
+  }
+
+  // PeerJS 'close' is unreliable when the other tab is closed, so a heartbeat detects drops.
+  function setupConn(conn) {
+    online.conn = conn;
+    online.lastSeen = Date.now();
+    conn.on('data', (d) => { online.lastSeen = Date.now(); onData(d, conn); });
+    conn.on('open', () => {
+      clearInterval(online.heartbeat);
+      online.lastSeen = Date.now();
+      online.heartbeat = setInterval(() => {
+        if (Date.now() - online.lastSeen > 10000) dropConn(conn);
+        else send({ type: 'ping' });
+      }, 3000);
+    });
+    conn.on('close', () => dropConn(conn));
+    conn.on('error', () => setOnlineMsg('連線中斷。'));
+  }
+
+  function onData(d, conn) {
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'bye') {
+      dropConn(conn);
+    } else if (d.type === 'start' && (d.color === 1 || d.color === -1)) {
+      online.ready = true;
+      startOnline(d.color);
+      setOnlineMsg('已連線！你執' + (d.color === 1 ? '白棋' : '黑棋') + '。');
+    } else if (d.type === 'move') {
+      if (cur.over || st.turn === human) return;
+      const m = cur.moves.find((x) => x.from === d.from && x.to === d.to && x.promo === d.promo);
+      if (m) doMove(m, true);
+    } else if (d.type === 'restart') {
+      startOnline(online.color);
+      setOnlineMsg('對手開了新局。');
+    }
+  }
+
+  async function hostRoom() {
+    closeOnline();
+    online.guest = false;
+    $('hostBtn').disabled = true;
+    setOnlineMsg('建立房間中…');
+    try {
+      await loadPeer();
+    } catch (e) {
+      $('hostBtn').disabled = false;
+      setOnlineMsg('無法載入連線元件，請檢查網路。');
+      return;
+    }
+    const room = randomRoom();
+    const peer = new window.Peer(ROOM_PREFIX + room);
+    online.peer = peer;
+    peer.on('open', () => {
+      const url = location.origin + location.pathname + '?room=' + room;
+      $('shareLink').value = url;
+      $('shareBox').hidden = false;
+      $('hostBtn').disabled = false;
+      $('hostBtn').textContent = '重新建立房間';
+      setOnlineMsg('等待對手加入…');
+      render();
+    });
+    peer.on('connection', (conn) => {
+      if (online.conn) { conn.on('open', () => conn.close()); return; }
+      setupConn(conn);
+      conn.on('open', () => {
+        const color = pickSide();
+        online.ready = true;
+        send({ type: 'start', color: -color });
+        startOnline(color);
+        setOnlineMsg('對手已加入！你執' + (color === 1 ? '白棋' : '黑棋') + '。');
+      });
+    });
+    peer.on('error', (err) => {
+      $('hostBtn').disabled = false;
+      setOnlineMsg(peerErrorText(err));
+    });
+  }
+
+  async function joinRoom(room) {
+    online.guest = true;
+    $('hostBtn').hidden = true;
+    setOnlineMsg('連線到房間 ' + room + ' 中…');
+    try {
+      await loadPeer();
+    } catch (e) {
+      setOnlineMsg('無法載入連線元件，請檢查網路。');
+      return;
+    }
+    const peer = new window.Peer();
+    online.peer = peer;
+    peer.on('open', () => setupConn(peer.connect(ROOM_PREFIX + room, { reliable: true })));
+    peer.on('error', (err) => setOnlineMsg(peerErrorText(err)));
+  }
+
+  function closeOnline() {
+    send({ type: 'bye' });
+    clearInterval(online.heartbeat);
+    if (online.peer) online.peer.destroy();
+    online.peer = null; online.conn = null; online.ready = false; online.guest = false;
+    $('shareBox').hidden = true;
+    $('hostBtn').hidden = false;
+    $('hostBtn').disabled = false;
+    $('hostBtn').textContent = '建立房間';
+    setOnlineMsg('');
+    if (location.search) history.replaceState(null, '', location.pathname);
   }
 
   function refresh() {
@@ -149,7 +345,8 @@
     render();
   }
 
-  function doMove(m) {
+  function doMove(m, remote) {
+    if (mode === 'online' && !remote) send({ type: 'move', from: m.from, to: m.to, promo: m.promo });
     sans.push(C.san(st, m, cur.moves));
     snaps.push(C.cloneState(st));
     hist.push({ from: m.from, to: m.to });
@@ -160,7 +357,7 @@
   }
 
   function maybeAI() {
-    if (cur.over || human === 0 || st.turn === human) return;
+    if (mode !== 'ai' || cur.over || st.turn === human) return;
     thinking = true;
     render();
     const my = token;
@@ -175,7 +372,7 @@
   }
 
   function undo() {
-    if (!snaps.length) return;
+    if (!snaps.length || mode === 'online') return;
     token++;
     thinking = false;
     do {
@@ -188,6 +385,7 @@
 
   function onSquare(sq) {
     if (cur.over || thinking) return;
+    if (mode === 'online' && !online.ready) return;
     if (human !== 0 && st.turn !== human) return;
     if (selected !== null) {
       const ms = cur.moves.filter((m) => m.from === selected && m.to === sq);
@@ -256,7 +454,8 @@
 
     const bottom = flipped ? -1 : 1, top = -bottom;
     const caps = capturedInfo();
-    const label = (s) => sideName(s) + (human === 0 ? '' : s === human ? '（你）' : '（電腦）');
+    const other = mode === 'online' ? '（對手）' : '（電腦）';
+    const label = (s) => sideName(s) + (human === 0 ? '' : s === human ? '（你）' : other);
     const diff = caps[1].pts - caps[-1].pts;
     $('topName').textContent = label(top);
     $('botName').textContent = label(bottom);
@@ -275,6 +474,10 @@
         : RESULT[cur.result];
     } else if (thinking) {
       status.textContent = '電腦思考中…';
+    } else if (mode === 'online' && !online.ready) {
+      status.textContent = online.peer ? '等待連線…' : '按「建立房間」邀請朋友';
+    } else if (mode === 'online' && st.turn !== human) {
+      status.textContent = '等待對手走棋…' + (cur.check ? '（將軍！）' : '');
     } else {
       const who = human !== 0 && st.turn === human ? '輪到你了' : '輪到' + sideName(st.turn);
       status.textContent = who + (cur.check ? '（將軍！）' : '');
@@ -288,15 +491,44 @@
     }
     list.scrollTop = list.scrollHeight;
     $('noMoves').style.display = sans.length ? 'none' : '';
-    $('undoBtn').disabled = !snaps.length;
+    $('undoBtn').disabled = !snaps.length || mode === 'online';
+    $('newBtn').disabled = mode === 'online' && online.peer !== null && !online.ready;
   }
 
   $('newBtn').onclick = newGame;
   $('undoBtn').onclick = undo;
   $('flipBtn').onclick = () => { flipped = !flipped; render(); };
   $('mode').onchange = newGame;
-  $('side').onchange = newGame;
-  newGame();
+  $('side').onchange = () => { if (!(mode === 'online' && online.peer)) newGame(); };
+  $('hostBtn').onclick = hostRoom;
+  $('copyBtn').onclick = async () => {
+    const link = $('shareLink').value;
+    try {
+      await navigator.clipboard.writeText(link);
+      $('copyBtn').textContent = '已複製';
+    } catch (e) {
+      $('shareLink').select();
+      $('copyBtn').textContent = '請手動複製';
+    }
+    setTimeout(() => { $('copyBtn').textContent = '複製'; }, 1500);
+  };
+
+  window.addEventListener('pagehide', () => send({ type: 'bye' }));
+
+  const room = new URLSearchParams(location.search).get('room');
+  if (room && /^[a-z0-9]{4,12}$/.test(room)) {
+    $('mode').value = 'online';
+    mode = 'online';
+    online.guest = true;
+    online.color = -1;
+    human = -1;
+    flipped = true;
+    updatePanels();
+    resetBoard();
+    joinRoom(room);
+  } else {
+    newGame();
+  }
 })();
 </script>
 </body>
