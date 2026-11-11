@@ -65,6 +65,11 @@
   .share input { flex: 1; min-width: 0; font: inherit; font-size: 13px; padding: 6px 8px; border-radius: 6px;
     border: 1px solid var(--line); background: var(--bg); color: var(--text); }
   button.act:disabled { opacity: .45; cursor: default; }
+  #chatLog { height: 180px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; font-size: 14px; }
+  .msg { max-width: 85%; padding: 6px 10px; border-radius: 12px; word-break: break-word; white-space: pre-wrap; }
+  .msg.me { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 4px; }
+  .msg.them { align-self: flex-start; background: var(--bg); border: 1px solid var(--line); border-bottom-left-radius: 4px; }
+  .msg.sys { align-self: center; color: var(--muted); font-size: 12px; padding: 0; }
   #promo { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; z-index: 10; }
   #promo.show { display: flex; }
   #promo .box { background: var(--panel); padding: 16px; border-radius: 12px; text-align: center; }
@@ -106,6 +111,13 @@
         <div class="share"><input id="shareLink" readonly aria-label="邀請連結"><button class="act" id="copyBtn">複製</button></div>
       </div>
       <div class="muted" id="onlineMsg" style="margin-top:8px"></div>
+    </div>
+    <div class="card" id="chatCard" hidden>
+      <div id="chatLog" aria-live="polite"><div class="muted" id="chatEmpty">連線後可以和對手聊天</div></div>
+      <form class="share" id="chatForm" autocomplete="off">
+        <input id="chatInput" maxlength="200" placeholder="輸入訊息…" aria-label="聊天訊息">
+        <button class="act" id="chatSend" type="submit">送出</button>
+      </form>
     </div>
     <div class="card">
       <ol id="moves"></ol>
@@ -158,6 +170,22 @@
     $('sideRow').style.display = mode === 'ai' || (mode === 'online' && !online.guest) ? '' : 'none';
     $('levelRow').style.display = mode === 'ai' ? '' : 'none';
     $('onlineCard').hidden = mode !== 'online';
+    $('chatCard').hidden = mode !== 'online';
+  }
+
+  // who: 'me' | 'them' | 'sys'. textContent keeps opponent messages from injecting HTML.
+  function addChat(text, who) {
+    const el = document.createElement('div');
+    el.className = 'msg ' + who;
+    el.textContent = text;
+    $('chatLog').appendChild(el);
+    $('chatEmpty').hidden = true;
+    $('chatLog').scrollTop = $('chatLog').scrollHeight;
+  }
+
+  function clearChat() {
+    for (const el of $('chatLog').querySelectorAll('.msg')) el.remove();
+    $('chatEmpty').hidden = false;
   }
 
   function newGame() {
@@ -232,6 +260,7 @@
     online.ready = false;
     conn.close();
     setOnlineMsg(online.guest ? '對手已離線。' : '對手已離線，連結仍有效，可等對方重新加入。');
+    addChat('對手已離線', 'sys');
     render();
   }
 
@@ -260,6 +289,10 @@
       online.ready = true;
       startOnline(d.color);
       setOnlineMsg('已連線！你執' + (d.color === 1 ? '白棋' : '黑棋') + '。');
+      addChat('已連線，可以開始聊天', 'sys');
+    } else if (d.type === 'chat' && typeof d.text === 'string') {
+      const text = d.text.trim().slice(0, 200);
+      if (text) addChat(text, 'them');
     } else if (d.type === 'move') {
       if (cur.over || st.turn === human) return;
       const m = cur.moves.find((x) => x.from === d.from && x.to === d.to && x.promo === d.promo);
@@ -303,6 +336,7 @@
         send({ type: 'start', color: -color });
         startOnline(color);
         setOnlineMsg('對手已加入！你執' + (color === 1 ? '白棋' : '黑棋') + '。');
+        addChat('對手已加入，可以開始聊天', 'sys');
       });
     });
     peer.on('error', (err) => {
@@ -337,6 +371,7 @@
     $('hostBtn').disabled = false;
     $('hostBtn').textContent = '建立房間';
     setOnlineMsg('');
+    clearChat();
     if (location.search) history.replaceState(null, '', location.pathname);
   }
 
@@ -493,7 +528,17 @@
     $('noMoves').style.display = sans.length ? 'none' : '';
     $('undoBtn').disabled = !snaps.length || mode === 'online';
     $('newBtn').disabled = mode === 'online' && online.peer !== null && !online.ready;
+    $('chatInput').disabled = $('chatSend').disabled = !online.ready;
   }
+
+  $('chatForm').onsubmit = (e) => {
+    e.preventDefault();
+    const text = $('chatInput').value.trim().slice(0, 200);
+    if (!text || !online.ready) return;
+    send({ type: 'chat', text });
+    addChat(text, 'me');
+    $('chatInput').value = '';
+  };
 
   $('newBtn').onclick = newGame;
   $('undoBtn').onclick = undo;
