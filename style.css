@@ -1,0 +1,106 @@
+/* 簡單西洋棋 — 樣式。顏色集中在 :root 變數，方便調整。 */
+:root {
+  --bg: #f4f1ea; --panel: #ffffff; --text: #22201c; --muted: #6f6a61; --line: #e2ddd2;
+  --accent: #2f6f4f; --light: #eed9b6; --dark: #b5875e;
+  --sel: rgba(47, 111, 79, .55); --last: rgba(246, 214, 90, .55);
+  --dot: rgba(30, 30, 30, .28); --check: #e2453c;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1b1a18; --panel: #262421; --text: #ece7de; --muted: #a39d92; --line: #3a3733; --accent: #6fbf8f; }
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+}
+.wrap {
+  max-width: 980px; margin: 0 auto; padding: 20px 16px 40px;
+  display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; align-items: flex-start;
+}
+h1 { width: 100%; margin: 0; font-size: 22px; text-align: center; letter-spacing: .05em; }
+h2 { margin: 0 0 8px; font-size: 15px; }
+
+/* 棋盤區：--bs 是棋盤邊長，隨螢幕縮放 */
+.game { --bs: min(92vw, 72vh, 560px); width: var(--bs); }
+.bar { display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 4px 2px; }
+.bar .name { font-weight: 600; }
+.bar.turn .name::before { content: "●"; color: var(--accent); margin-right: 6px; }
+.caps { font-size: 20px; line-height: 1; color: var(--muted); letter-spacing: -2px; }
+
+#board {
+  width: var(--bs); height: var(--bs); display: grid; grid-template-columns: repeat(8, 1fr);
+  border-radius: 6px; overflow: hidden; box-shadow: 0 6px 24px rgba(0, 0, 0, .18); user-select: none;
+}
+.sq {
+  position: relative; border: 0; padding: 0; margin: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: calc(var(--bs) / 8 * .78); line-height: 1;
+  font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "DejaVu Sans", sans-serif;
+}
+.sq.light { background: var(--light); }
+.sq.dark { background: var(--dark); }
+.sq.last::before, .sq.sel::before, .sq.check::before { content: ""; position: absolute; inset: 0; }
+.sq.last::before { background: var(--last); }
+.sq.sel::before { background: var(--sel); }
+.sq.check::before { background: radial-gradient(circle, var(--check) 0%, rgba(226, 69, 60, .6) 40%, transparent 75%); }
+.sq.move::after { content: ""; position: absolute; width: 30%; height: 30%; border-radius: 50%; background: var(--dot); }
+.sq.capture::after { content: ""; position: absolute; inset: 4%; border-radius: 50%; border: 5px solid var(--dot); }
+
+/* 棋子：白棋白色加黑邊，黑棋純黑，兩種顏色在深淺格上都清楚 */
+.pc { position: relative; z-index: 1; pointer-events: none; }
+.pc.w { color: #fff; text-shadow: 0 0 1px #000, 0 0 1px #000, 0 1px 2px #000, 1px 0 1px #000, -1px 0 1px #000, 0 -1px 1px #000; }
+.pc.b { color: #161411; text-shadow: 0 1px 1px rgba(255, 255, 255, .25); }
+
+.coord { position: absolute; font-size: 11px; font-weight: 600; z-index: 1; pointer-events: none; font-family: system-ui, sans-serif; }
+.coord.f { right: 3px; bottom: 2px; }
+.coord.r { left: 3px; top: 2px; }
+.light .coord { color: var(--dark); }
+.dark .coord { color: var(--light); }
+
+/* 右側面板 */
+.side { width: 300px; max-width: 92vw; display: flex; flex-direction: column; gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+#status { font-size: 17px; font-weight: 600; min-height: 24px; }
+#status.over { color: var(--accent); }
+.controls { display: flex; flex-direction: column; gap: 12px; }
+label { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px; }
+select {
+  font: inherit; padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--text);
+}
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg-btn { font: inherit; font-size: 14px; padding: 8px; border: 0; background: var(--bg); color: var(--text); cursor: pointer; }
+.seg-btn.on { background: var(--accent); color: #fff; }
+.btns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+button.act {
+  font: inherit; font-size: 14px; padding: 10px 6px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--text); cursor: pointer;
+}
+button.act:hover { border-color: var(--accent); }
+button.act:disabled { opacity: .45; cursor: default; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.tips { font-size: 13px; color: var(--muted); }
+.tips h2 { color: var(--text); }
+.tips ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+
+/* 升變選單 */
+#promo { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: none; align-items: center; justify-content: center; z-index: 10; }
+#promo.show { display: flex; }
+#promo .box { background: var(--panel); padding: 16px; border-radius: 12px; text-align: center; }
+#promo .opts { display: flex; gap: 8px; margin-top: 10px; }
+#promo .opts button {
+  width: 72px; height: 72px; font-size: 52px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--light); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  font-family: "Segoe UI Symbol", "Apple Symbols", "Noto Sans Symbols 2", "DejaVu Sans", sans-serif;
+}
+
+/* 手機版：控制區與提示放在棋盤下方，棋盤佔滿寬度 */
+@media (max-width: 640px) {
+  .wrap { padding: 12px 8px 32px; gap: 14px; }
+  h1 { font-size: 19px; }
+  .game { --bs: min(100vw - 16px, 560px); }
+  .side { width: 100%; max-width: 560px; }
+  button.act, .seg-btn { min-height: 44px; }
+}
