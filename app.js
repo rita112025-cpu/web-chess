@@ -7,9 +7,8 @@
   const C = window.Chess;
   const $ = (id) => document.getElementById(id);
 
-  // 棋子圖示（實心符號，白棋／黑棋靠 CSS 上色）。︎ 強制使用文字樣式，避免手機顯示成彩色 emoji
-  const GLYPH = { 1: '♟', 2: '♞', 3: '♝', 4: '♜', 5: '♛', 6: '♚' };
-  const NAME = { 1: '兵', 2: '騎士', 3: '主教', 4: '城堡', 5: '皇后', 6: '國王' };
+  const Board = window.Board;
+  const glyph = Board.glyph, sideName = Board.sideName;
   const RESULT = {
     stalemate: '逼和，和局', insufficient: '子力不足，和局',
     fifty: '50 步規則，和局', repetition: '三次重複局面，和局'
@@ -28,9 +27,6 @@
   let mode = 'ai';        // 'ai' | 'pvp'
   let token = 0;          // 新局／悔棋時遞增，讓過期的電腦回合作廢
 
-  const glyph = (p) => GLYPH[Math.abs(p)] + '︎';
-  const sideName = (s) => (s === 1 ? '白方' : '黑方');
-
   function pickSide() {
     const v = $('side').value;
     if (v === 'random') return Math.random() < 0.5 ? 1 : -1;
@@ -44,7 +40,7 @@
     st = C.newState();
     snaps = []; lastMoves = []; lastMove = null;
     selected = null; thinking = false; token++;
-    $('promo').classList.remove('show');
+    Board.closePromo();
     refresh();
     maybeAI();
   }
@@ -108,25 +104,11 @@
     if (human !== 0 && st.turn !== human) return;
     if (selected !== null) {
       const ms = cur.moves.filter((m) => m.from === selected && m.to === sq);
-      if (ms.length > 1) return askPromo(ms); // 同一格有多個走法 = 兵升變
+      if (ms.length > 1) return Board.askPromo(ms, st.turn, doMove); // 同一格有多個走法 = 兵升變
       if (ms.length === 1) return doMove(ms[0]);
     }
     selected = st.board[sq] * st.turn > 0 && selected !== sq ? sq : null;
     render();
-  }
-
-  // 升變選單：每種升變棋子一個按鈕
-  function askPromo(ms) {
-    const box = $('promoOpts');
-    box.innerHTML = '';
-    for (const m of ms) {
-      const b = document.createElement('button');
-      b.innerHTML = '<span class="pc ' + (st.turn === 1 ? 'w' : 'b') + '">' + glyph(m.promo) + '</span>';
-      b.setAttribute('aria-label', NAME[m.promo]);
-      b.onclick = () => { $('promo').classList.remove('show'); doMove(m); };
-      box.appendChild(b);
-    }
-    $('promo').classList.add('show');
   }
 
   // 各方被吃掉的棋子（由開局數量減去場上數量）
@@ -148,28 +130,17 @@
   }
 
   function render() {
-    const board = $('board');
-    board.innerHTML = '';
+    // 選取棋子後，標出它所有可走的格子（有敵子或過路兵 = 圓圈，否則圓點）
     const targets = new Map();
-    if (selected !== null) for (const m of cur.moves) if (m.from === selected) targets.set(m.to, m);
-    const kingSq = cur.check ? st.board.indexOf(6 * st.turn) : -1;
-
-    for (let i = 0; i < 64; i++) {
-      const sq = flipped ? 63 - i : i;
-      const r = sq >> 3, c = sq & 7, p = st.board[sq];
-      const el = document.createElement('button');
-      el.className = 'sq ' + ((r + c) % 2 ? 'dark' : 'light');
-      if (lastMove && (sq === lastMove.from || sq === lastMove.to)) el.classList.add('last');
-      if (sq === selected) el.classList.add('sel');
-      if (sq === kingSq) el.classList.add('check');
-      if (targets.has(sq)) el.classList.add(p || targets.get(sq).flag === 1 ? 'capture' : 'move');
-      if (p) el.innerHTML = '<span class="pc ' + (p > 0 ? 'w' : 'b') + '">' + glyph(p) + '</span>';
-      if ((i >> 3) === 7) el.insertAdjacentHTML('beforeend', '<span class="coord f">' + 'abcdefgh'[c] + '</span>');
-      if ((i & 7) === 0) el.insertAdjacentHTML('beforeend', '<span class="coord r">' + (8 - r) + '</span>');
-      el.setAttribute('aria-label', C.sqName(sq) + (p ? ' ' + sideName(p > 0 ? 1 : -1) + NAME[Math.abs(p)] : ''));
-      el.onclick = () => onSquare(sq);
-      board.appendChild(el);
+    if (selected !== null) {
+      for (const m of cur.moves) {
+        if (m.from === selected) targets.set(m.to, st.board[m.to] || m.flag === 1 ? 'capture' : 'move');
+      }
     }
+    Board.draw($('board'), {
+      st, flipped, selected, targets, last: lastMove, onSquare,
+      checkSq: cur.check ? st.board.indexOf(6 * st.turn) : -1
+    });
 
     // 上下兩條：玩家名稱與已吃掉的棋子
     const bottom = flipped ? -1 : 1, top = -bottom;
@@ -205,5 +176,24 @@
   $('modePvp').onclick = () => setMode('pvp');
   $('side').onchange = newGame;
 
+  // ---------- 畫面切換 ----------
+  // 首頁、自由對弈、教學各自獨立：切換只是顯示／隱藏，不會重設或污染另一邊的狀態
+  const VIEWS = { home: 'viewHome', play: 'viewPlay', tutor: 'viewTutor' };
+  function show(view) {
+    for (const v in VIEWS) $(VIEWS[v]).hidden = v !== view;
+    $('homeBtn').hidden = view === 'home';
+    Board.closePromo();
+    window.scrollTo(0, 0);
+  }
+
+  $('goPlay').onclick = () => show('play');
+  $('goLearn').onclick = () => { window.Tutorial.open('learn'); show('tutor'); };
+  $('goChallenge').onclick = () => { window.Tutorial.open('challenge'); show('tutor'); };
+  $('homeBtn').onclick = () => show('home');
+  $('tFinish').onclick = () => show('home');
+  // 點升變視窗的空白處可取消（取消後兵仍留在原位，可重新選擇）
+  $('promo').onclick = (e) => { if (e.target === $('promo')) Board.closePromo(); };
+
   setMode('ai');
+  show('home');
 })();

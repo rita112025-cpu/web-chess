@@ -8,46 +8,93 @@
 </head>
 <body>
 <main class="wrap">
-  <h1>♞ 簡單西洋棋</h1>
+  <header class="top">
+    <button type="button" class="back" id="homeBtn" hidden>← 首頁</button>
+    <h1 id="appTitle">♞ 簡單西洋棋</h1>
+  </header>
 
-  <section class="game">
-    <div class="bar" id="topBar"><span class="name" id="topName"></span><span class="caps" id="topCaps"></span></div>
-    <div id="board" role="grid" aria-label="棋盤"></div>
-    <div class="bar" id="botBar"><span class="name" id="botName"></span><span class="caps" id="botCaps"></span></div>
+  <!-- 首頁：三個入口 -->
+  <section class="home" id="viewHome">
+    <p class="lead">完全沒下過西洋棋也沒關係，從這裡開始。</p>
+    <button type="button" class="entry" id="goLearn">
+      <span class="entry-icon">♞</span>
+      <span class="entry-text"><strong>學習棋子</strong><small>6 種棋子的走法，加上王車易位、吃過路兵、升變、將死</small></span>
+    </button>
+    <button type="button" class="entry" id="goChallenge">
+      <span class="entry-icon">♜</span>
+      <span class="entry-text"><strong>練習挑戰</strong><small>6 個小關卡，動手解題</small></span>
+    </button>
+    <button type="button" class="entry" id="goPlay">
+      <span class="entry-icon">♚</span>
+      <span class="entry-text"><strong>自由對弈</strong><small>對戰電腦，或雙人同機下一整局</small></span>
+    </button>
   </section>
 
-  <aside class="side">
-    <div class="card"><div id="status" aria-live="polite"></div></div>
-
-    <div class="card controls">
-      <div class="seg" role="group" aria-label="對戰模式">
-        <button type="button" class="seg-btn" id="modeAi" data-mode="ai">對戰電腦</button>
-        <button type="button" class="seg-btn" id="modePvp" data-mode="pvp">雙人同機</button>
-      </div>
-      <label id="sideRow">我執
-        <select id="side">
-          <option value="w">白棋（先手）</option>
-          <option value="b">黑棋</option>
-          <option value="random">隨機</option>
-        </select>
-      </label>
-      <div class="btns">
-        <button type="button" class="act primary" id="newBtn">新對局</button>
-        <button type="button" class="act" id="undoBtn">悔棋</button>
-        <button type="button" class="act" id="flipBtn">翻轉棋盤</button>
-      </div>
+  <!-- 自由對弈 -->
+  <section class="view" id="viewPlay" hidden>
+    <div class="game">
+      <div class="bar" id="topBar"><span class="name" id="topName"></span><span class="caps" id="topCaps"></span></div>
+      <div class="board" id="board" role="grid" aria-label="棋盤"></div>
+      <div class="bar" id="botBar"><span class="name" id="botName"></span><span class="caps" id="botCaps"></span></div>
     </div>
 
-    <div class="card tips">
-      <h2>怎麼玩？</h2>
-      <ol>
-        <li>點一下自己的棋子，棋盤會標出可以走的位置。</li>
-        <li>圓點是移動，圓圈是可吃子；再點一下目標格就會走棋。</li>
-        <li>國王被攻擊時會亮紅色（將軍），必須立刻化解。</li>
-        <li>兵走到底線可以升變，會跳出視窗讓你選擇。</li>
-      </ol>
+    <aside class="side">
+      <div class="card"><div id="status" aria-live="polite"></div></div>
+
+      <div class="card controls">
+        <div class="seg" role="group" aria-label="對戰模式">
+          <button type="button" class="seg-btn" id="modeAi" data-mode="ai">對戰電腦</button>
+          <button type="button" class="seg-btn" id="modePvp" data-mode="pvp">雙人同機</button>
+        </div>
+        <label id="sideRow">我執
+          <select id="side">
+            <option value="w">白棋（先手）</option>
+            <option value="b">黑棋</option>
+            <option value="random">隨機</option>
+          </select>
+        </label>
+        <div class="btns">
+          <button type="button" class="act primary" id="newBtn">新對局</button>
+          <button type="button" class="act" id="undoBtn">悔棋</button>
+          <button type="button" class="act" id="flipBtn">翻轉棋盤</button>
+        </div>
+      </div>
+
+      <div class="card tips">
+        <h2>怎麼玩？</h2>
+        <ol>
+          <li>點一下自己的棋子，棋盤會標出可以走的位置。</li>
+          <li>圓點是移動，圓圈是可吃子；再點一下目標格就會走棋。</li>
+          <li>國王被攻擊時會亮紅色（將軍），必須立刻化解。</li>
+          <li>兵走到底線可以升變，會跳出視窗讓你選擇。</li>
+        </ol>
+      </div>
+    </aside>
+  </section>
+
+  <!-- 學習棋子／練習挑戰（共用版面，內容由 tutorial.js 填入） -->
+  <section class="view" id="viewTutor" hidden>
+    <div class="game">
+      <div class="bar"><span class="name" id="tTitleBar"></span></div>
+      <div class="board" id="tBoard" role="grid" aria-label="練習棋盤"></div>
     </div>
-  </aside>
+
+    <aside class="side">
+      <div class="card lesson">
+        <div class="chips" id="tNav" role="group" aria-label="單元"></div>
+        <h2 id="tTitle"></h2>
+        <p id="tIntro" class="intro"></p>
+        <p id="tTask" class="task"></p>
+        <div id="tFeedback" class="feedback" role="status" aria-live="polite" hidden></div>
+        <div class="btns two">
+          <button type="button" class="act" id="tRetry">再試一次</button>
+          <button type="button" class="act" id="tHint">顯示提示</button>
+          <button type="button" class="act" id="tNext">下一課</button>
+        </div>
+        <button type="button" class="act primary wide" id="tFinish" hidden></button>
+      </div>
+    </aside>
+  </section>
 </main>
 
 <div id="promo" role="dialog" aria-label="選擇升變棋子">
@@ -55,6 +102,10 @@
 </div>
 
 <script src="engine.js"></script>
+<script src="board.js"></script>
+<script src="lessons.js"></script>
+<script src="session.js"></script>
+<script src="tutorial.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

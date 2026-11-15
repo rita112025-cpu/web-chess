@@ -324,7 +324,9 @@
 
   const api = {
     newState, fromFen, cloneState, legalMoves, play, make, unmake, status, inCheck,
-    randomMove, sqName, perft
+    randomMove, sqName, perft,
+    // 以下供教學模式解釋「為什麼不能這樣走」使用
+    pseudoMoves: genPseudo, isAttacked, findKing
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Chess = api;
