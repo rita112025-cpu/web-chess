@@ -201,12 +201,12 @@
   #chatSend { width: 48px; padding: 0; flex: none; }
 
   /* ---------- Promotion dialog ---------- */
-  #promo { position: fixed; inset: 0; background: rgba(3,14,12,.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  #promo, #dlg { position: fixed; inset: 0; background: rgba(3,14,12,.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
     display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
-  #promo.show { display: flex; }
-  #promo .box { width: min(100%, 392px); background: var(--forest); border: 1px solid var(--gold); padding: 18px 16px 16px; border-radius: 16px;
+  #promo.show, #dlg.show { display: flex; }
+  #promo .box, #dlg .box { width: min(100%, 392px); background: var(--forest); border: 1px solid var(--gold); padding: 18px 16px 16px; border-radius: 16px;
     text-align: center; box-shadow: 0 30px 70px -20px #000; animation: pop .2s ease; }
-  #promo .ttl { font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--gold); letter-spacing: .12em; }
+  #promo .ttl, #dlg .ttl { font-family: var(--serif); font-size: 16px; font-weight: 700; color: var(--gold); letter-spacing: .12em; }
   #promo .opts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
   #promo .opts button { display: flex; flex-direction: column; align-items: center; gap: 4px; min-height: 92px; padding: 8px 2px 6px; border-radius: 12px;
     border: 2px solid transparent; background: var(--light); color: var(--ink); cursor: pointer; font: inherit; transition: transform .15s, border-color .15s; }
@@ -214,6 +214,10 @@
   #promo .opts button:focus-visible { outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px var(--gold); }
   #promo .opts .pc { width: 68%; height: auto; aspect-ratio: 1; }
   #promo .plb { font-size: 13px; font-weight: 700; }
+  #dlg .txt { margin-top: 10px; font-size: 14px; color: var(--ivory); }
+  #dlg .row { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 8px; margin-top: 16px; }
+  #chatHint { text-align: right; margin-top: 4px; min-height: 18px; }
+  #chatHint.over { color: #f0a090; font-weight: 700; }
 
   @keyframes fade { from { opacity: 0; } }
   @keyframes pop { from { transform: scale(.8); opacity: 0; } }
@@ -274,6 +278,10 @@
         <button class="act" id="undoBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>悔棋</button>
         <button class="act" id="flipBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8"/><path d="M3 3v5h5"/></svg>翻轉</button>
       </div>
+      <div class="btns" id="onlineActs" hidden style="grid-template-columns:1fr 1fr;margin-top:8px">
+        <button class="act" id="resignBtn">認輸</button>
+        <button class="act" id="drawBtn">提議和棋</button>
+      </div>
     </section>
     <details class="card fold c-caps" id="capsFold">
       <summary><span class="ct">吃子資訊</span><span class="badge" id="capsBadge"></span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></summary>
@@ -293,14 +301,18 @@
       <div class="ct">對手聊天</div>
       <div id="chatLog" aria-live="polite"><div class="muted" id="chatEmpty">連線後可以和對手聊天</div></div>
       <form class="share" id="chatForm" autocomplete="off">
-        <input id="chatInput" maxlength="200" placeholder="輸入訊息…" aria-label="聊天訊息">
+        <input id="chatInput" placeholder="輸入訊息…" aria-label="聊天訊息">
         <button class="act primary" id="chatSend" type="submit" aria-label="送出"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg></button>
       </form>
+      <div class="muted" id="chatHint" aria-live="polite"></div>
     </section>
   </aside>
 </div>
 <div id="promo" role="dialog" aria-modal="true" aria-label="選擇升變棋子">
   <div class="box"><div class="ttl">兵升變為</div><div class="opts" id="promoOpts"></div></div>
+</div>
+<div id="dlg" role="dialog" aria-modal="true" aria-labelledby="dlgTtl">
+  <div class="box"><div class="ttl" id="dlgTtl"></div><div class="txt" id="dlgTxt"></div><div class="row" id="dlgRow"></div></div>
 </div>
 <script src="engine.js"></script>
 <script>
@@ -322,12 +334,14 @@
   const INIT = { 1: 8, 2: 2, 3: 2, 4: 2, 5: 1 };
   const RESULT = {
     stalemate: '逼和，和局', insufficient: '子力不足，和局',
-    fifty: '50 步規則，和局', repetition: '三次重複局面，和局'
+    fifty: '50 步規則，和局', repetition: '三次重複局面，和局', agreed: '雙方同意和棋，和局'
   };
 
   let st, cur, snaps = [], sans = [], hist = [];
   let lastHistLen = 0;
   let selected = null, flipped = false, thinking = false, human = 1, token = 0, mode = 'ai';
+  const CHAT_MAX = 200;
+  let ended = null, pendingDraw = null; // ended: online resign / agreed draw; pendingDraw: 'out' | 'in' | null
   // Online play state: peer = PeerJS instance, conn = data connection to opponent.
   const online = { peer: null, conn: null, color: 1, ready: false, guest: false };
   const PEERJS_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
@@ -346,8 +360,9 @@
   function resetBoard() {
     st = C.newState();
     snaps = []; sans = []; hist = [];
-    selected = null; thinking = false; token++;
+    selected = null; thinking = false; token++; ended = null; pendingDraw = null;
     $('promo').classList.remove('show');
+    closeDlg();
     refresh();
   }
 
@@ -376,6 +391,45 @@
   function clearChat() {
     for (const el of $('chatLog').querySelectorAll('.msg')) el.remove();
     $('chatEmpty').hidden = false;
+  }
+
+  // Generic confirm dialog. choices: [{label, primary, fn}]; the last choice is the cancel / decline one (Esc).
+  function showDlg(title, text, choices) {
+    $('dlgTtl').textContent = title;
+    $('dlgTxt').textContent = text;
+    const row = $('dlgRow');
+    row.innerHTML = '';
+    for (const c of choices) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'act' + (c.primary ? ' primary' : '');
+      b.textContent = c.label;
+      b.onclick = () => { closeDlg(); if (c.fn) c.fn(); };
+      row.appendChild(b);
+    }
+    $('dlg').classList.add('show');
+    row.firstChild.focus();
+  }
+  function closeDlg() { $('dlg').classList.remove('show'); }
+  $('dlg').addEventListener('keydown', (e) => {
+    const btns = [...$('dlgRow').children];
+    const i = btns.indexOf(document.activeElement);
+    if (e.key === 'Escape') {
+      btns[btns.length - 1].click();
+    } else if (e.key === 'Tab' || e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      e.preventDefault();
+      const back = e.key === 'ArrowLeft' || (e.key === 'Tab' && e.shiftKey);
+      btns[(i + (back ? -1 : 1) + btns.length) % btns.length].focus();
+    }
+  });
+
+  // Online game ended by resignation (winner = color) or agreed draw (winner = 0).
+  function endGame(winner) {
+    ended = winner ? { result: 'resign', winner } : { result: 'agreed' };
+    pendingDraw = null;
+    selected = null;
+    closeDlg();
+    refresh();
   }
 
   function newGame() {
@@ -437,19 +491,25 @@
   }
 
   function peerErrorText(err) {
-    if (err && err.type === 'peer-unavailable') return '找不到這個房間，可能已關閉，請請對方重新建立。';
+    if (err && err.type === 'peer-unavailable') return '找不到這個房間，可能已關閉，請對方重新建立。';
     if (err && err.type === 'unavailable-id') return '房間代碼重複，請再按一次「建立房間」。';
     if (err && (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error')) return '連不上配對伺服器，請檢查網路後再試。';
     return '連線發生錯誤，請重新整理後再試。';
   }
+
+  // A guest whose room is gone can start a room of their own (the host button is hidden while joining).
+  function offerHost() { $('hostBtn').hidden = false; }
 
   function dropConn(conn) {
     if (online.conn !== conn) return;
     clearInterval(online.heartbeat);
     online.conn = null;
     online.ready = false;
+    pendingDraw = null;
+    closeDlg();
     conn.close();
-    setOnlineMsg(online.guest ? '對手已離線。' : '對手已離線，連結仍有效，可等對方重新加入。');
+    if (online.guest) offerHost();
+    setOnlineMsg(online.guest ? '對手已離線。你也可以按「建立房間」自己開一間。' : '對手已離線，連結仍有效，可等對方重新加入，棋局會保留。');
     addChat('對手已離線', 'sys');
     render();
   }
@@ -478,8 +538,9 @@
     } else if (d.type === 'start' && (d.color === 1 || d.color === -1)) {
       online.ready = true;
       startOnline(d.color);
-      setOnlineMsg('已連線！你執' + (d.color === 1 ? '白棋' : '黑棋') + '。');
-      addChat('已連線，可以開始聊天', 'sys');
+      if (Array.isArray(d.moves)) resumeMoves(d.moves);
+      setOnlineMsg('已連線！你執' + (d.color === 1 ? '白棋' : '黑棋') + '。' + (d.moves ? '已還原上一局。' : ''));
+      addChat(d.moves ? '已重新連線，繼續上一局' : '已連線，可以開始聊天', 'sys');
     } else if (d.type === 'chat' && typeof d.text === 'string') {
       const text = d.text.trim().slice(0, 200);
       if (text) addChat(text, 'them');
@@ -490,6 +551,44 @@
     } else if (d.type === 'restart') {
       startOnline(online.color);
       setOnlineMsg('對手開了新局。');
+      addChat('對手開了新局', 'sys');
+    } else if (d.type === 'resign') {
+      if (cur.over) return;
+      addChat('對手認輸', 'sys');
+      endGame(online.color);
+    } else if (d.type === 'draw-offer') {
+      if (cur.over) return;
+      if (pendingDraw === 'out') {
+        send({ type: 'draw-accept' });
+        addChat('雙方都提議和棋，和局成立', 'sys');
+        endGame(0);
+        return;
+      }
+      pendingDraw = 'in';
+      addChat('對手提議和棋', 'sys');
+      showDlg('對手提議和棋', '是否接受和棋？', [
+        { label: '接受', primary: true, fn: () => { send({ type: 'draw-accept' }); endGame(0); } },
+        { label: '拒絕', fn: () => { send({ type: 'draw-decline' }); pendingDraw = null; addChat('你拒絕了和棋', 'sys'); render(); } }
+      ]);
+      render();
+    } else if (d.type === 'draw-accept') {
+      if (cur.over || pendingDraw !== 'out') return;
+      addChat('對手接受和棋', 'sys');
+      endGame(0);
+    } else if (d.type === 'draw-decline') {
+      if (pendingDraw !== 'out') return;
+      pendingDraw = null;
+      addChat('對手拒絕了和棋', 'sys');
+      render();
+    }
+  }
+
+  // Replay the host's move list so a reconnecting guest sees the game in progress.
+  function resumeMoves(list) {
+    for (const x of list.slice(0, 1000)) {
+      const m = cur.moves.find((y) => y.from === x.from && y.to === x.to && y.promo === x.promo);
+      if (!m) { setOnlineMsg('無法還原上一局，已改為新局。'); resetBoard(); return; }
+      doMove(m, true);
     }
   }
 
@@ -521,12 +620,20 @@
       if (online.conn) { conn.on('open', () => conn.close()); return; }
       setupConn(conn);
       conn.on('open', () => {
-        const color = pickSide();
+        const resume = sans.length > 0 && !cur.over;
+        const color = resume ? online.color : pickSide();
         online.ready = true;
-        send({ type: 'start', color: -color });
-        startOnline(color);
-        setOnlineMsg('對手已加入！你執' + (color === 1 ? '白棋' : '黑棋') + '。');
-        addChat('對手已加入，可以開始聊天', 'sys');
+        if (resume) {
+          send({ type: 'start', color: -color, moves: hist.map((h) => ({ from: h.from, to: h.to, promo: h.promo })) });
+          setOnlineMsg('對手已重新加入，繼續上一局。你執' + (color === 1 ? '白棋' : '黑棋') + '。');
+          addChat('對手已重新加入，繼續上一局', 'sys');
+          render();
+        } else {
+          send({ type: 'start', color: -color });
+          startOnline(color);
+          setOnlineMsg('對手已加入！你執' + (color === 1 ? '白棋' : '黑棋') + '。');
+          addChat('對手已加入，可以開始聊天', 'sys');
+        }
       });
     });
     peer.on('error', (err) => {
@@ -548,7 +655,7 @@
     const peer = new window.Peer();
     online.peer = peer;
     peer.on('open', () => setupConn(peer.connect(ROOM_PREFIX + room, { reliable: true })));
-    peer.on('error', (err) => setOnlineMsg(peerErrorText(err)));
+    peer.on('error', (err) => { offerHost(); setOnlineMsg(peerErrorText(err) + '也可以按「建立房間」自己開一間。'); });
   }
 
   function closeOnline() {
@@ -556,6 +663,7 @@
     clearInterval(online.heartbeat);
     if (online.peer) online.peer.destroy();
     online.peer = null; online.conn = null; online.ready = false; online.guest = false;
+    pendingDraw = null;
     $('shareBox').hidden = true;
     $('hostBtn').hidden = false;
     $('hostBtn').disabled = false;
@@ -567,6 +675,7 @@
 
   function refresh() {
     cur = C.status(st);
+    if (ended) cur = Object.assign({}, cur, { over: true, check: false, moves: [], result: ended.result, winner: ended.winner });
     render();
   }
 
@@ -574,7 +683,7 @@
     if (mode === 'online' && !remote) send({ type: 'move', from: m.from, to: m.to, promo: m.promo });
     sans.push(C.san(st, m, cur.moves));
     snaps.push(C.cloneState(st));
-    hist.push({ from: m.from, to: m.to });
+    hist.push({ from: m.from, to: m.to, promo: m.promo });
     C.play(st, m);
     selected = null;
     refresh();
@@ -712,7 +821,7 @@
     $('capsBadge').textContent = diff === 0 ? '' : (diff > 0 ? '白方' : '黑方') + '領先 ' + Math.abs(diff);
     $('topAdv').textContent = diff * top > 0 ? '+' + Math.abs(diff) : '';
     $('botAdv').textContent = diff * bottom > 0 ? '+' + Math.abs(diff) : '';
-    const winner = cur.over && cur.result === 'checkmate' ? -st.turn : 0;
+    const winner = cur.over ? (cur.result === 'checkmate' ? -st.turn : cur.result === 'resign' ? cur.winner : 0) : 0;
     $('topBar').classList.toggle('won', winner === top);
     $('botBar').classList.toggle('won', winner === bottom);
     $('topTag').textContent = winner === top ? '勝利' : '行棋中';
@@ -721,7 +830,7 @@
     $('botBar').classList.toggle('turn', !cur.over && st.turn === bottom);
 
     const status = $('status');
-    const mate = cur.over && cur.result === 'checkmate';
+    const mate = winner !== 0;
     $('statusCard').classList.toggle('mate', mate);
     $('statusCard').classList.toggle('draw', cur.over && !mate);
     $('statusCard').classList.toggle('warn', cur.check && !cur.over);
@@ -729,7 +838,9 @@
     if (cur.over) {
       status.textContent = cur.result === 'checkmate'
         ? '將死！' + sideName(-st.turn) + '獲勝'
-        : RESULT[cur.result];
+        : cur.result === 'resign'
+          ? sideName(-cur.winner) + '認輸，' + sideName(cur.winner) + '獲勝'
+          : RESULT[cur.result];
     } else if (thinking) {
       status.textContent = '電腦思考中…';
     } else if (mode === 'online' && !online.ready) {
@@ -753,19 +864,62 @@
     $('movesBadge').textContent = sans.length ? sans.length + ' 步・' + sans[sans.length - 1] : '';
     $('undoBtn').disabled = !snaps.length || mode === 'online';
     $('newBtn').disabled = mode === 'online' && online.peer !== null && !online.ready;
-    $('chatInput').disabled = $('chatSend').disabled = !online.ready;
+    $('chatInput').disabled = !online.ready;
+    $('chatSend').disabled = !online.ready || $('chatInput').value.length > CHAT_MAX;
+    $('onlineActs').hidden = !(mode === 'online' && online.ready);
+    $('resignBtn').disabled = cur.over;
+    $('drawBtn').disabled = cur.over || pendingDraw !== null;
+    $('drawBtn').textContent = pendingDraw === 'out' ? '已提議和棋…' : '提議和棋';
   }
+
+  function updateChatHint() {
+    const len = $('chatInput').value.length;
+    const over = len > CHAT_MAX;
+    $('chatHint').textContent = over ? '超過 ' + CHAT_MAX + ' 字（' + len + '/' + CHAT_MAX + '），請縮短後再送出' : len >= 150 ? len + '/' + CHAT_MAX : '';
+    $('chatHint').classList.toggle('over', over);
+    $('chatSend').disabled = !online.ready || over;
+  }
+  $('chatInput').addEventListener('input', updateChatHint);
 
   $('chatForm').onsubmit = (e) => {
     e.preventDefault();
-    const text = $('chatInput').value.trim().slice(0, 200);
-    if (!text || !online.ready) return;
+    const text = $('chatInput').value.trim();
+    if (!text || !online.ready || text.length > CHAT_MAX) return;
     send({ type: 'chat', text });
     addChat(text, 'me');
     $('chatInput').value = '';
+    updateChatHint();
   };
 
-  $('newBtn').onclick = newGame;
+  $('newBtn').onclick = () => {
+    if (mode === 'online' && online.ready && sans.length && !cur.over) {
+      showDlg('開始新局？', '對局正在進行中，重新開始會清掉目前的棋局，並通知對手。', [
+        { label: '重新開始', primary: true, fn: newGame },
+        { label: '取消' }
+      ]);
+    } else {
+      newGame();
+    }
+  };
+  $('resignBtn').onclick = () => {
+    if (!online.ready || cur.over) return;
+    showDlg('確定認輸？', '認輸後對手獲勝，這局會立即結束。', [
+      { label: '確定認輸', primary: true, fn: () => {
+        if (!online.ready || cur.over) return;
+        send({ type: 'resign' });
+        addChat('你認輸了', 'sys');
+        endGame(-online.color);
+      } },
+      { label: '取消' }
+    ]);
+  };
+  $('drawBtn').onclick = () => {
+    if (!online.ready || cur.over || pendingDraw) return;
+    send({ type: 'draw-offer' });
+    pendingDraw = 'out';
+    addChat('你提議和棋，等待對手回應', 'sys');
+    render();
+  };
   $('undoBtn').onclick = undo;
   $('flipBtn').onclick = () => { flipped = !flipped; render(); };
   $('mode').onchange = newGame;
