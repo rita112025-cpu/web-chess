@@ -25,7 +25,7 @@
   .layout { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 640px; margin: 0 auto; padding: 10px 8px 28px; }
   .nav, .info { display: contents; }
   .brand { order: 1; } .stage { order: 2; } .c-status { order: 3; } .c-actions { order: 4; } .c-mode { order: 5; }
-  .c-online { order: 6; } .c-chat { order: 7; } .c-caps { order: 8; } .c-moves { order: 9; }
+  .c-puzzle { order: 3; } .c-online { order: 6; } .c-chat { order: 7; } .c-caps { order: 8; } .c-moves { order: 9; }
   .stage { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 0; }
   @media (min-width: 1080px) {
     .layout { --bs: clamp(320px, min(calc(100vh - 2 * var(--pad) - 2 * var(--bar-h) - 36px), calc(100vw - 700px)), 900px);
@@ -51,7 +51,8 @@
   .brand p { margin: 3px 0 0; font-size: 12px; letter-spacing: .32em; color: var(--gold); }
 
   /* Mode nav */
-  .modes { display: flex; flex-direction: row; gap: 6px; }
+  .modes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  @media (max-width: 519px) { .modes { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   .modes button { display: flex; align-items: center; justify-content: center; gap: 6px; flex: 1; min-width: 0; min-height: 44px; font: inherit; font-size: 14px; font-weight: 600; white-space: nowrap;
     padding: 0 6px; border-radius: 10px; border: 1px solid transparent; background: transparent; color: var(--muted); cursor: pointer;
     transition: background .18s, color .18s; }
@@ -60,7 +61,7 @@
   .modes button.on { color: var(--ink); background: linear-gradient(180deg, #e2c58c, var(--gold)); }
   @media (max-width: 359px) { .modes button svg { display: none; } }
   @media (min-width: 1080px) {
-    .modes { flex-direction: column; }
+    .modes { display: flex; flex-direction: column; }
     .modes button { flex: none; width: 100%; justify-content: flex-start; gap: 10px; padding: 0 12px; font-size: 14.5px; text-align: left; }
   }
   .field { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 12px 0 0; }
@@ -105,7 +106,8 @@
   .sq.light { background: var(--light); }
   .sq.dark { background: var(--dark); }
   .sq:focus-visible { outline: 3px solid var(--ink); outline-offset: -3px; z-index: 2; }
-  .sq.last::before, .sq.sel::before, .sq.check::before { content: ""; position: absolute; inset: 0; }
+  .sq.last::before, .sq.sel::before, .sq.check::before, .sq.hint::before { content: ""; position: absolute; inset: 0; }
+  .sq.hint::before { box-shadow: inset 0 0 0 4px #4fc3a1, inset 0 0 0 6px rgba(7,31,27,.35); background: rgba(79,195,161,.22); animation: fade .25s ease; }
   .sq.last::before { background: rgba(214,180,119,.40); }
   .sq.sel::before { background: rgba(214,180,119,.34); box-shadow: inset 0 0 0 3px var(--gold), inset 0 0 0 4px rgba(7,31,27,.35); }
   .sq.check::before { background: radial-gradient(circle, rgba(214,69,69,.95) 0%, rgba(214,69,69,.55) 46%, transparent 76%); animation: fade .25s ease; }
@@ -219,6 +221,28 @@
   #chatHint { text-align: right; margin-top: 4px; min-height: 18px; }
   #chatHint.over { color: #f0a090; font-weight: 700; }
 
+  /* ---------- Puzzle mode ---------- */
+  .pz-count { float: right; letter-spacing: .04em; color: var(--muted); font-family: var(--sans); font-weight: 600; }
+  .pz-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .pz-tag { font-size: 12px; font-weight: 800; color: var(--ink); background: var(--gold); padding: 2px 9px; border-radius: 99px; flex: none; }
+  .pz-title { font-family: var(--serif); font-size: 16px; font-weight: 700; }
+  .pz-goal { margin-top: 10px; font-size: 14.5px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .pz-msg { margin-top: 10px; font-size: 14px; line-height: 1.5; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: rgba(7,31,27,.55); }
+  .pz-msg:empty { display: none; }
+  .pz-msg.bad { border-color: rgba(214,69,69,.8); color: #ffc2b8; }
+  .pz-msg.good { border-color: var(--gold); color: var(--gold); font-weight: 700; }
+  .pz-hints { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 13.5px; line-height: 1.5; }
+  .pz-hints li { padding: 7px 10px; border-left: 3px solid #4fc3a1; background: rgba(79,195,161,.08); border-radius: 0 8px 8px 0; }
+  .pz-hints b { color: #7fd3c0; }
+  .pz-sol { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 14px; line-height: 1.55; }
+  .pz-line { font-weight: 700; color: var(--gold); font-variant-numeric: tabular-nums; }
+  .pz-line .on { background: var(--gold); color: var(--ink); border-radius: 4px; padding: 0 3px; }
+  .pz-step { min-height: 20px; margin-top: 6px; }
+  .c-puzzle .btns { margin-top: 10px; }
+  .btns.two { grid-template-columns: 1fr 1fr; }
+  .btns.three { grid-template-columns: 1fr 1fr 1fr; }
+  .btns.one { grid-template-columns: 1fr; }
+
   @keyframes fade { from { opacity: 0; } }
   @keyframes pop { from { transform: scale(.8); opacity: 0; } }
   @keyframes drop { from { transform: scale(1.18); opacity: .6; } }
@@ -241,8 +265,9 @@
         <button type="button" data-v="ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="14" height="11" rx="2"/><path d="M12 8V4M9 13h.01M15 13h.01M9 16h6"/></svg>對戰電腦</button>
         <button type="button" data-v="online"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>線上對戰</button>
         <button type="button" data-v="pvp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6M15 14.5c3 0 6 2 6 5.5"/></svg>雙人同機</button>
+        <button type="button" data-v="puzzle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14M12 17.5h.01"/></svg>猜下一步</button>
       </div>
-      <select id="mode" hidden aria-label="模式"><option value="ai">對戰電腦</option><option value="online">線上對戰</option><option value="pvp">雙人同機</option></select>
+      <select id="mode" hidden aria-label="模式"><option value="ai">對戰電腦</option><option value="online">線上對戰</option><option value="pvp">雙人同機</option><option value="puzzle">猜下一步</option></select>
       <label class="field" id="sideRow"><span class="fl">我執</span>
         <select id="side"><option value="w">白棋（先手）</option><option value="b">黑棋</option><option value="random">隨機</option></select>
       </label>
@@ -271,6 +296,33 @@
     <section class="card c-status" id="statusCard" aria-live="polite">
       <div class="ct">對局狀態</div>
       <div class="statusRow"><span class="sdot" id="sdot"></span><div id="status"></div></div>
+    </section>
+    <section class="card c-puzzle" id="puzzleCard" hidden aria-label="猜下一步">
+      <div class="ct">猜下一步<span class="pz-count" id="pzCount"></span></div>
+      <div class="pz-head"><span class="pz-tag" id="pzTheme"></span><span class="pz-title" id="pzTitle"></span></div>
+      <div class="pz-goal"><span class="sdot" id="pzDot"></span><span id="pzGoal"></span></div>
+      <div class="pz-msg" id="pzMsg" aria-live="polite"></div>
+      <ol class="pz-hints" id="pzHints"></ol>
+      <div class="btns two">
+        <button class="act" id="pzHintBtn" type="button">提示</button>
+        <button class="act" id="pzShowBtn" type="button">查看解答</button>
+      </div>
+      <div class="pz-sol" id="pzSol" hidden>
+        <div class="pz-line" id="pzLine"></div>
+        <div class="muted" id="pzAlt"></div>
+        <div id="pzExplain" style="margin-top:6px"></div>
+        <div class="btns three" id="pzReplay">
+          <button class="act" id="pzFirst" type="button" aria-label="回到題目局面">⏮ 起始</button>
+          <button class="act" id="pzPrev" type="button">◀ 上一步</button>
+          <button class="act" id="pzNext" type="button">下一步 ▶</button>
+        </div>
+        <div class="muted pz-step" id="pzStep" aria-live="polite"></div>
+      </div>
+      <div class="btns three">
+        <button class="act" id="pzPrevQ" type="button">上一題</button>
+        <button class="act" id="pzRetry" type="button">重做本題</button>
+        <button class="act primary" id="pzNextQ" type="button">下一題</button>
+      </div>
     </section>
     <section class="card c-actions">
       <div class="btns">
@@ -315,6 +367,7 @@
   <div class="box"><div class="ttl" id="dlgTtl"></div><div class="txt" id="dlgTxt"></div><div class="row" id="dlgRow"></div></div>
 </div>
 <script src="engine.js"></script>
+<script src="puzzles.js"></script>
 <script>
 (function () {
   'use strict';
@@ -344,6 +397,9 @@
   let ended = null, pendingDraw = null; // ended: online resign / agreed draw; pendingDraw: 'out' | 'in' | null
   // Online play state: peer = PeerJS instance, conn = data connection to opponent.
   const online = { peer: null, conn: null, color: 1, ready: false, guest: false };
+  // Puzzle mode ("猜下一步"): fixed-order local puzzle list from puzzles.js (works offline).
+  const PZ = window.PUZZLES || [];
+  const pz = { idx: 0, hints: 0, solved: false, revealed: false, tries: 0, line: [], step: 0, start: 1, msg: '', cls: '' };
   const PEERJS_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
   const ROOM_PREFIX = 'wchess-';
 
@@ -376,6 +432,12 @@
     }
     $('onlineCard').hidden = mode !== 'online';
     $('chatCard').hidden = mode !== 'online';
+    const puzzle = mode === 'puzzle';
+    $('puzzleCard').hidden = !puzzle;
+    $('capsFold').hidden = puzzle;
+    $('newBtn').hidden = puzzle;
+    $('undoBtn').hidden = puzzle;
+    $('newBtn').parentNode.classList.toggle('one', puzzle);
   }
 
   // who: 'me' | 'them' | 'sys'. textContent keeps opponent messages from injecting HTML.
@@ -447,6 +509,7 @@
       }
       return;
     }
+    if (mode === 'puzzle') { loadPuzzle(pz.idx); return; }
     if (mode === 'ai') {
       human = pickSide();
       flipped = human === -1;
@@ -717,14 +780,157 @@
     maybeAI();
   }
 
+  // ---------- Puzzle mode ----------
+  const sqIdx = (n) => (8 - +n[1]) * 8 + (n.charCodeAt(0) - 97);
+  const uciOf = (m) => C.sqName(m.from) + C.sqName(m.to) + (m.promo ? 'nbrq'[m.promo - 2] : '');
+  const findUci = (state, u) => {
+    const list = C.legalMoves(state);
+    return { m: list.find((x) => uciOf(x) === u), list };
+  };
+
+  function loadPuzzle(i) {
+    if (!PZ.length) return;
+    pz.idx = (i + PZ.length) % PZ.length;
+    const P = PZ[pz.idx];
+    Object.assign(pz, { hints: 0, solved: false, revealed: false, tries: 0, step: 0, msg: '', cls: '' });
+    token++; thinking = false; ended = null; pendingDraw = null; selected = null;
+    $('promo').classList.remove('show');
+    closeDlg();
+    // Replay states for the main line: line[k] = { san, move, after } where after is the position after k+1 moves.
+    const rs = C.fromFen(P.fen);
+    pz.start = rs.turn;
+    pz.line = [];
+    for (const u of P.line) {
+      const { m, list } = findUci(rs, u);
+      if (!m) break;
+      const san = C.san(rs, m, list);
+      C.play(rs, m);
+      pz.line.push({ san, from: m.from, to: m.to, promo: m.promo, after: C.cloneState(rs) });
+    }
+    human = pz.start;
+    flipped = human === -1;
+    showReplay(0);
+  }
+
+  // Put the board at step k of the main line (0 = puzzle position).
+  function showReplay(k) {
+    const P = PZ[pz.idx];
+    pz.step = Math.max(0, Math.min(k, pz.line.length));
+    st = pz.step ? C.cloneState(pz.line[pz.step - 1].after) : C.fromFen(P.fen);
+    sans = pz.line.slice(0, pz.step).map((x) => x.san);
+    hist = pz.line.slice(0, pz.step).map((x) => ({ from: x.from, to: x.to, promo: x.promo }));
+    snaps = [];
+    selected = null;
+    refresh();
+  }
+
+  function setPzMsg(text, cls) { pz.msg = text; pz.cls = cls || ''; }
+
+  function puzzleTry(m) {
+    const P = PZ[pz.idx];
+    const u = uciOf(m);
+    const san = C.san(st, m, cur.moves);
+    if (P.solutions.includes(u)) {
+      pz.solved = true;
+      if (u === P.line[0]) {
+        showReplay(1);
+      } else {
+        // Another accepted answer: show the player's own move on the board; the replay buttons switch to the main line.
+        sans = [san]; hist = [{ from: m.from, to: m.to, promo: m.promo }];
+        C.play(st, m);
+        selected = null;
+        pz.step = -1;
+        refresh();
+      }
+      setPzMsg('答對了！' + san + ' 達成目標「' + P.goal + '」。', 'good');
+      renderPuzzle();
+      return;
+    }
+    pz.tries++;
+    let why = '合法，但沒有達成「' + P.goal + '」。';
+    if (P.kind === 'mate') {
+      C.make(st, m);
+      const check = C.inCheck(st);
+      C.unmake(st, m);
+      why = check ? '是將軍，但對方還有應將的走法，不是將死。' : '不是將軍，對方國王沒有被將死。';
+    }
+    setPzMsg(san + ' ' + why + '局面已維持原題，再試一次。（已嘗試 ' + pz.tries + ' 次）', 'bad');
+    selected = null;
+    render();
+  }
+
+  function moveText(list, startTurn) {
+    let out = '', n = 1, turn = startTurn;
+    list.forEach((x, i) => {
+      if (turn === 1) out += (i ? ' ' : '') + n + '. ';
+      else if (i === 0) out += n + '… ';
+      else out += ' ';
+      out += '<span data-i="' + (i + 1) + '">' + x.san + '</span>';
+      if (turn === -1) n++;
+      turn = -turn;
+    });
+    return out;
+  }
+
+  function renderPuzzle() {
+    if (mode !== 'puzzle' || !PZ.length) return;
+    const P = PZ[pz.idx];
+    const done = pz.solved || pz.revealed;
+    $('pzCount').textContent = '第 ' + (pz.idx + 1) + ' / ' + PZ.length + ' 題';
+    $('pzTheme').textContent = P.theme;
+    $('pzTitle').textContent = P.title;
+    $('pzGoal').textContent = '輪到' + sideName(pz.start) + '：' + P.goal;
+    $('pzDot').className = 'sdot ' + (pz.start === 1 ? 'white' : 'black');
+    $('pzMsg').textContent = pz.msg;
+    $('pzMsg').className = 'pz-msg ' + pz.cls;
+    const hints = $('pzHints');
+    hints.innerHTML = '';
+    [P.hint1, P.hint2].slice(0, pz.hints).forEach((h, i) => {
+      const li = document.createElement('li');
+      li.innerHTML = '<b>提示 ' + (i + 1) + '：</b>';
+      li.appendChild(document.createTextNode(h));
+      hints.appendChild(li);
+    });
+    $('pzHintBtn').disabled = pz.hints >= 2 || done;
+    $('pzHintBtn').textContent = pz.hints === 0 ? '提示' : pz.hints === 1 ? '第二個提示' : '提示已用完';
+    $('pzShowBtn').disabled = done;
+    $('pzSol').hidden = !done;
+    if (done) {
+      $('pzLine').innerHTML = (P.kind === 'mate' ? '解答：' : '主變化：') + moveText(pz.line, pz.start);
+      for (const el of $('pzLine').querySelectorAll('span')) el.classList.toggle('on', +el.dataset.i === pz.step);
+      const alts = P.solutions.filter((u) => u !== P.line[0]).map((u) => {
+        const s0 = C.fromFen(P.fen);
+        const { m, list } = findUci(s0, u);
+        return m ? C.san(s0, m, list) : u;
+      });
+      $('pzAlt').textContent = alts.length ? '同樣接受：' + alts.join('、') : '';
+      $('pzExplain').textContent = P.explain;
+      $('pzFirst').disabled = pz.step === 0;
+      $('pzPrev').disabled = pz.step <= 0;
+      $('pzNext').disabled = pz.step >= pz.line.length;
+      const labels = ['題目局面'];
+      pz.line.forEach((x, i) => labels.push(
+        (i === 0 ? '關鍵一步' : i === 1 ? '對手的關鍵應手' : '接續走法') + '：' + x.san));
+      $('pzStep').textContent = pz.step === -1
+        ? '棋盤上是你走的那一步；按「起始」或「下一步」可重播主變化。'
+        : '第 ' + pz.step + ' / ' + pz.line.length + ' 步・' + labels[pz.step];
+    }
+  }
+
+  function commit(m) {
+    if (mode === 'puzzle') puzzleTry(m);
+    else doMove(m);
+  }
+
   function onSquare(sq) {
+    if (mode === 'puzzle' && (pz.solved || pz.revealed)) return;
     if (cur.over || thinking) return;
     if (mode === 'online' && !online.ready) return;
     if (human !== 0 && st.turn !== human) return;
     if (selected !== null) {
       const ms = cur.moves.filter((m) => m.from === selected && m.to === sq);
       if (ms.length > 1) return askPromo(ms);
-      if (ms.length === 1) return doMove(ms[0]);
+      if (ms.length === 1) return commit(ms[0]);
     }
     selected = st.board[sq] * st.turn > 0 && selected !== sq ? sq : null;
     render();
@@ -737,7 +943,7 @@
       const b = document.createElement('button');
       b.type = 'button';
       b.innerHTML = pieceHTML(st.turn * Math.abs(m.promo)) + '<span class="plb">' + NAME[m.promo] + '</span>';
-      b.onclick = () => { $('promo').classList.remove('show'); doMove(m); };
+      b.onclick = () => { $('promo').classList.remove('show'); commit(m); };
       box.appendChild(b);
     }
     $('promo').classList.add('show');
@@ -784,6 +990,7 @@
     const last = hist[hist.length - 1];
     const kingSq = cur.check ? st.board.indexOf(6 * st.turn) : -1;
     const animSq = last && hist.length > lastHistLen ? last.to : -1;
+    const hintSq = mode === 'puzzle' && pz.hints >= 2 && !pz.solved && !pz.revealed && PZ[pz.idx] ? sqIdx(PZ[pz.idx].hintSq) : -1;
     lastHistLen = hist.length;
 
     for (let i = 0; i < 64; i++) {
@@ -794,6 +1001,7 @@
       if (last && (sq === last.from || sq === last.to)) el.classList.add('last');
       if (sq === selected) el.classList.add('sel');
       if (sq === kingSq) el.classList.add('check');
+      if (sq === hintSq && sq !== selected) el.classList.add('hint');
       if (targets.has(sq)) el.classList.add(p || targets.get(sq).flag === 1 ? 'capture' : 'move');
       if (sq === animSq) el.classList.add('anim');
       if (p) el.innerHTML = pieceHTML(p);
@@ -806,7 +1014,7 @@
 
     const bottom = flipped ? -1 : 1, top = -bottom;
     const caps = capturedInfo();
-    const other = mode === 'online' ? '（對手）' : '（電腦）';
+    const other = mode === 'online' ? '（對手）' : mode === 'puzzle' ? '（題目）' : '（電腦）';
     const label = (s) => sideName(s) + (human === 0 ? '' : s === human ? '（你）' : other);
     const diff = caps[1].pts - caps[-1].pts;
     $('topName').textContent = label(top);
@@ -835,7 +1043,9 @@
     $('statusCard').classList.toggle('draw', cur.over && !mate);
     $('statusCard').classList.toggle('warn', cur.check && !cur.over);
     $('sdot').className = 'sdot ' + (mate ? 'over' : cur.over ? 'draw' : thinking ? 'spin' : st.turn === 1 ? 'white' : 'black');
-    if (cur.over) {
+    if (cur.over && mode === 'puzzle') {
+      status.textContent = pz.solved ? '答對了！將死' : '將死（解答）';
+    } else if (cur.over) {
       status.textContent = cur.result === 'checkmate'
         ? '將死！' + sideName(-st.turn) + '獲勝'
         : cur.result === 'resign'
@@ -843,6 +1053,8 @@
           : RESULT[cur.result];
     } else if (thinking) {
       status.textContent = '電腦思考中…';
+    } else if (mode === 'puzzle' && (pz.solved || pz.revealed)) {
+      status.textContent = pz.solved ? '答對了！' : '已顯示解答';
     } else if (mode === 'online' && !online.ready) {
       status.textContent = online.peer ? '等待連線…' : '按「建立房間」邀請朋友';
     } else if (mode === 'online' && st.turn !== human) {
@@ -854,10 +1066,12 @@
 
     const list = $('moves');
     list.innerHTML = '';
-    for (let i = 0; i < sans.length; i += 2) {
-      const cls = (k) => (k === sans.length - 1 ? 'cur' : '');
+    // A puzzle where Black moves first starts the record with "…" in White's column.
+    const rows = mode === 'puzzle' && pz.start === -1 && sans.length ? ['…'].concat(sans) : sans;
+    for (let i = 0; i < rows.length; i += 2) {
+      const cls = (k) => (k === rows.length - 1 ? 'cur' : '');
       list.insertAdjacentHTML('beforeend',
-        '<li class="n">' + (i / 2 + 1) + '.</li><li class="' + cls(i) + '">' + sans[i] + '</li><li class="' + cls(i + 1) + '">' + (sans[i + 1] || '') + '</li>');
+        '<li class="n">' + (i / 2 + 1) + '.</li><li class="' + cls(i) + '">' + rows[i] + '</li><li class="' + cls(i + 1) + '">' + (rows[i + 1] || '') + '</li>');
     }
     list.scrollTop = list.scrollHeight;
     $('noMoves').style.display = sans.length ? 'none' : '';
@@ -870,6 +1084,7 @@
     $('resignBtn').disabled = cur.over;
     $('drawBtn').disabled = cur.over || pendingDraw !== null;
     $('drawBtn').textContent = pendingDraw === 'out' ? '已提議和棋…' : '提議和棋';
+    renderPuzzle();
   }
 
   function updateChatHint() {
@@ -921,6 +1136,23 @@
     render();
   };
   $('undoBtn').onclick = undo;
+  $('pzHintBtn').onclick = () => {
+    if (pz.hints >= 2 || pz.solved || pz.revealed) return;
+    pz.hints++;
+    render();
+  };
+  $('pzShowBtn').onclick = () => {
+    if (pz.solved || pz.revealed) return;
+    pz.revealed = true;
+    setPzMsg('已顯示解答。用下方按鈕重播，或按「重做本題」自己再走一次。', '');
+    showReplay(0);
+  };
+  $('pzFirst').onclick = () => showReplay(0);
+  $('pzPrev').onclick = () => showReplay(pz.step === -1 ? 0 : pz.step - 1);
+  $('pzNext').onclick = () => showReplay(pz.step === -1 ? 1 : pz.step + 1);
+  $('pzRetry').onclick = () => loadPuzzle(pz.idx);
+  $('pzPrevQ').onclick = () => loadPuzzle(pz.idx - 1);
+  $('pzNextQ').onclick = () => loadPuzzle(pz.idx + 1);
   $('flipBtn').onclick = () => { flipped = !flipped; render(); };
   $('mode').onchange = newGame;
   for (const b of $('modeSeg').children) {
